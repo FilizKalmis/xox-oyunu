@@ -34,7 +34,31 @@ Bu proje, Python socket programlama kullanılarak geliştirilmiş bir XOX (Tic-T
 - Python 3.6 veya üzeri
 - tkinter (genellikle Python ile birlikte gelir)
 
+### GitHub'dan İndirme
+
+1. **Repository'yi klonlayın:**
+   ```bash
+   git clone https://github.com/FilizKalmis/xox-oyunu.git
+   cd xox-oyunu
+   ```
+
+2. **Veya ZIP olarak indirin:**
+   - GitHub sayfasından "Code" > "Download ZIP" seçeneğini kullanın
+   - ZIP dosyasını açın ve klasöre gidin
+
 ### Çalıştırma
+
+#### Windows Kullanıcıları İçin (Kolay Yol - Önerilen)
+
+1. **Ana Menüyü Başlatma:**
+   - `oyunu_baslat.bat` dosyasına çift tıklayın
+   - Oyun menüsü açılır
+
+2. **Network Modu için Sunucuyu Başlatma:**
+   - `sunucu_baslat.bat` dosyasına çift tıklayın
+   - Sunucu penceresi açılır ve IP adresi gösterilir
+
+#### Terminalden Çalıştırma (Tüm İşletim Sistemleri)
 
 1. **Ana Menüyü Başlatma:**
    ```bash
@@ -49,6 +73,7 @@ Bu proje, Python socket programlama kullanılarak geliştirilmiş bir XOX (Tic-T
 3. **Network Modu için İstemci Başlatma:**
    - Ana menüden "Network Üzerinden Karşılıklı" seçeneğini seçin
    - Açılan pencerede sunucunun IP adresini girin (sunucu ekranında gösterilen IP)
+   - **Not:** Test modu sadece aynı bilgisayarda test için kullanılır. Gerçek network oyunu için farklı bilgisayarlardan bağlanın.
 
 ## Dosya Yapısı
 
@@ -61,6 +86,8 @@ PythonSocket/
 ├── game_network.py       # Network modu (client)
 ├── server_gui.py         # Network modu sunucusu
 ├── test_game.py          # Test case'leri
+├── oyunu_baslat.bat      # Windows: Oyunu başlatmak için (çift tıklayın)
+├── sunucu_baslat.bat     # Windows: Sunucuyu başlatmak için (çift tıklayın)
 ├── README.md             # Bu dosya
 ├── client_gui.py         # Eski network client (X oyuncusu)
 └── client_gui_0.py       # Eski network client (O oyuncusu)
@@ -84,23 +111,55 @@ PythonSocket/
 
 ### 3. Network Modu
 
-1. **Sunucu tarafı (Bir bilgisayarda):**
+#### Normal Kullanım (Farklı Bilgisayarlar) - Gerçek Network Oyunu
+
+**Önemli:** Bu mod farklı bilgisayarlardan oynamak için tasarlanmıştır. Her iki bilgisayar da aynı ağda (WiFi/LAN) olmalıdır.
+
+1. **Sunucu tarafı (Bir bilgisayarda - örn: Senin bilgisayarın):**
    ```bash
    python server_gui.py
    ```
    - Sunucu penceresi açılır ve **IP adresi otomatik olarak gösterilir**
-   - Bu IP adresini not edin (örnek: 192.168.1.100)
+   - Bu IP adresini not edin (örnek: 192.168.1.100 veya 10.203.91.71)
+   - Bu IP adresini arkadaşına verin
    - Sunucu 2 oyuncu bekleyecek şekilde hazır olur
 
-2. **İstemci tarafı (Her iki oyuncu için):**
+2. **İstemci tarafı (Her iki oyuncu için - farklı bilgisayarlar):**
    ```bash
    python game_launcher.py
    ```
    - "Network Üzerinden Karşılıklı" butonuna tıklayın
-   - Açılan pencerede sunucunun IP adresini girin
+   - Açılan pencerede sunucunun IP adresini girin (sunucu ekranında gösterilen IP)
    - "Bağlan" butonuna tıklayın
    - İlk bağlanan oyuncu X, ikinci bağlanan oyuncu O olur
    - İki oyuncu da bağlandığında oyun otomatik başlar
+
+**Not:** 
+- Her iki bilgisayar da aynı WiFi ağında veya aynı yerel ağda olmalıdır
+- Firewall ayarları bağlantıyı engelliyorsa, Python'a izin verin
+- Sunucu IP adresi otomatik bulunur ve ekranda gösterilir
+
+#### Test Modu (Aynı Bilgisayarda Test)
+
+Network modunu aynı bilgisayarda test etmek için iki yöntem var:
+
+**Yöntem 1: Test Modu Butonu (Önerilen)**
+1. `game_launcher.py` dosyasını çalıştırın
+2. "🧪 Test Modu (2 Pencere - Localhost)" butonuna tıklayın
+3. Sunucu ve 2 oyuncu penceresi otomatik açılır
+4. Her iki pencere de localhost'a otomatik bağlanır
+
+**Yöntem 2: Manuel Test**
+1. Sunucuyu başlatın: `python server_gui.py`
+2. İki kez `game_launcher.py` çalıştırın
+3. Her ikisinde de "Network Üzerinden Karşılıklı" seçin
+4. IP adresi olarak `127.0.0.1` girin
+
+**Yöntem 3: Test Scripti**
+```bash
+python test_network_localhost.py
+```
+Bu script sunucuyu ve 2 client penceresini otomatik açar.
 
 ## Test Case'leri
 

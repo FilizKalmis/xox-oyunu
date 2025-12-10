@@ -14,18 +14,28 @@ PORT = 55555
 class NetworkGame(BaseGame):
     """Network modu - socket üzerinden oyun"""
     
-    def __init__(self, master, time_mode=False):
+    def __init__(self, master, time_mode=False, auto_connect_ip=None):
         super().__init__(master, time_mode)
         master.title("XOX Oyunu - Network Modu")
         
         self.client_socket = None
         self.is_connected = False
+        # BaseGame.__init__ current_player = 'X' yapıyor, biz None yapıyoruz
+        # Sunucu ASSIGN_PLAYER komutu ile atayacak
         self.current_player = None  # Sunucu atayacak
         self.opponent_char = None
         self.host = None
+        self.is_my_turn = False  # Başlangıçta sıra bizde değil
         
-        # IP adresi sor
-        self.ask_server_ip()
+        # BaseGame'in current_player değiştirmesini engelle
+        # Network modunda current_player bizim karakterimiz, değişmez!
+        
+        # Eğer auto_connect_ip verilmişse, IP sormadan direkt bağlan
+        if auto_connect_ip:
+            self.host = auto_connect_ip
+        else:
+            # IP adresi sor
+            self.ask_server_ip()
         
         if self.host:  # Eğer IP girildiyse devam et
             self._create_widgets()
@@ -162,65 +172,140 @@ class NetworkGame(BaseGame):
     
     def listen_for_messages(self):
         """Sunucudan gelen mesajları dinler"""
+        buffer = ""  # Mesaj buffer'ı
         while self.is_connected:
             try:
                 data = self.client_socket.recv(1024).decode('utf-8')
-                if data:
-                    self.master.after(0, lambda d=data: self.process_message(d))
-                else:
+                if not data:
                     break
+                
+                buffer += data
+                
+                # Mesajları ayır: Her mesaj | ile bitiyor
+                # Ama mesaj içinde de | var, bu yüzden son | karakterini bul
+                while True:
+                    # Son | karakterini bul
+                    last_pipe = buffer.rfind('|')
+                    if last_pipe == -1:
+                        # Tam mesaj yok, daha fazla veri bekle
+                        break
+                    
+                    # Son | karakterine kadar olan kısmı mesaj olarak al
+                    message = buffer[:last_pipe + 1]
+                    buffer = buffer[last_pipe + 1:]
+                    
+                    if message:
+                        # Lambda closure problemini önlemek için mesajı kopyala
+                        msg_copy = message
+                        # GUI thread'inde işle
+                        self.master.after(0, lambda m=msg_copy: self.process_message(m))
+                    
+                    # Eğer buffer'da başka | yoksa dur
+                    if '|' not in buffer:
+                        break
+                        
             except ConnectionResetError:
+                break
+            except ConnectionAbortedError:
                 break
             except Exception as e:
                 print(f"HATA: Mesaj dinleme hatası: {e}")
+                import traceback
+                traceback.print_exc()
                 break
         
         self.is_connected = False
-        self.master.after(0, lambda: self.status_label.config(text="Bağlantı Kesildi.", fg="red"))
+        if hasattr(self, 'status_label'):
+            self.master.after(0, lambda: self.status_label.config(text="Bağlantı Kesildi.", fg="red"))
         try:
-            self.client_socket.close()
+            if self.client_socket:
+                self.client_socket.close()
         except:
             pass
     
     def process_message(self, message):
-        """Sunucudan gelen mesajı işler"""
+        """Sunucudan gelen mesajı işler (GUI thread'inde çalışmalı)"""
+        # Mesaj formatı: COMMAND|param1|param2| (son | dahil)
+        # split('|') yapınca son eleman boş string olur, bu yüzden rstrip kullan
+        message = message.rstrip('|')  # Son | karakterini kaldır
         parts = message.split('|')
+        
+        if not parts or not parts[0]:
+            return
+        
         command = parts[0]
         
         if command == "COMMAND:ASSIGN_PLAYER":
             # Sunucu oyuncu karakterini atadı
-            if len(parts) > 1:
+            # Format: COMMAND:ASSIGN_PLAYER|X| -> parts: ['COMMAND:ASSIGN_PLAYER', 'X']
+            if len(parts) > 1 and parts[1]:
                 self.current_player = parts[1]
                 self.opponent_char = 'O' if self.current_player == 'X' else 'X'
                 self.master.title(f"XOX Oyunu - Network Modu ({self.current_player})")
+                print(f"DEBUG: Oyuncu atandı: '{self.current_player}'")
         
         elif command == "COMMAND:START_GAME":
-            self.status_label.config(text="Oyun Başladı!")
+            # Oyun başlıyor - X oyuncusu ilk başlar
             if self.current_player is None:
                 self.current_player = 'X'
                 self.opponent_char = 'O'
+            
             self.is_my_turn = (self.current_player == 'X')
+            
+            # GUI güncellemeleri
+            self.status_label.config(text="Oyun Başladı!")
             self.set_board_enabled(self.is_my_turn)
             self.update_status()
+            
             if self.time_mode:
                 self.start_timer()
         
         elif command == "MOVE":
             # Hamle mesajı: MOVE|row,col|char
             try:
-                r, c = map(int, parts[1].split(','))
-                char = parts[2]
+                if len(parts) < 3:
+                    print(f"HATA: MOVE mesajı eksik parametre: {parts}")
+                    return
                 
+                if not parts[1] or not parts[2]:
+                    print(f"HATA: MOVE mesajı boş parametre: {parts}")
+                    return
+                
+                r, c = map(int, parts[1].split(','))
+                char = parts[2].strip()
+                
+                if not char:
+                    print(f"HATA: MOVE mesajında karakter yok: {parts}")
+                    return
+                
+                print(f"DEBUG: MOVE işleniyor - r:{r}, c:{c}, char:'{char}', current_player:'{self.current_player}'")
+                
+                # Sadece rakibin hamlesini işle
                 if char != self.current_player:
-                    self.update_board(r, c, char)
-                    self.current_player = 'X' if self.current_player == 'O' else 'O'
+                    print(f"DEBUG: Rakibin hamlesi, tahta güncelleniyor")
+                    # Network modunda update_board'u direkt çağır, BaseGame'in make_move'unu çağırma
+                    # current_player değişmemeli!
+                    self.game_board[r][c] = char
+                    color = 'blue' if char == 'X' else 'red'
+                    self.buttons[r][c].config(text=char, fg=color, state=tk.DISABLED)
+                    
+                    # Oyun sonu kontrolü
+                    winner = self.check_winner()
+                    if winner:
+                        self.end_game(winner)
+                    
+                    # Sıra bize geçti
                     self.is_my_turn = True
                     self.set_board_enabled(True)
                     self.update_status()
                     if self.time_mode:
                         self.start_timer()
+                else:
+                    print(f"DEBUG: Kendi hamlemiz, yoksayılıyor")
             except Exception as e:
                 print(f"HATA: Hamle işlenemedi: {e}")
+                import traceback
+                traceback.print_exc()
         
         elif command == "GAME_OVER":
             # Oyun sonu mesajı: GAME_OVER|winner|player_char|
@@ -280,14 +365,47 @@ class NetworkGame(BaseGame):
             messagebox.showinfo("Uyarı", "Sunucu kapatıldı.")
             self.on_closing()
     
-    def on_move_made(self, r, c):
+    def make_move(self, r, c):
+        """Network modunda hamle yapma - current_player değişmez"""
+        if self.game_over or self.game_board[r][c] != ' ':
+            return
+        
+        if not self.is_my_turn:
+            return
+        
+        # Hamleyi yerel olarak yap (current_player değişmez!)
+        # BaseGame.update_board'u çağırma, direkt güncelle (current_player korunur)
+        char = self.current_player
+        self.game_board[r][c] = char
+        color = 'blue' if char == 'X' else 'red'
+        self.buttons[r][c].config(text=char, fg=color, state=tk.DISABLED)
+        
+        # Oyun sonu kontrolü
+        winner = self.check_winner()
+        if winner:
+            self.end_game(winner)
+        
+        # Zaman modunda bonus süre ekle
+        if self.time_mode and self.timer_running:
+            self.time_remaining += self.bonus_time
+            if self.timer_label:
+                self.timer_label.config(text=f"Süre: {self.time_remaining} saniye (+{self.bonus_time} bonus)")
+        
+        # Hamleyi sunucuya gönder
+        self.on_move_made(r, c)
+    
+    def on_move_made(self, r, c, player_char=None):
         """Hamleyi sunucuya gönder"""
         if not self.is_connected:
             return
         
-        message = f"MOVE|{r},{c}|{self.current_player}"
+        # Network modunda current_player bizim karakterimiz, değişmez
+        move_char = self.current_player
+        
+        message = f"MOVE|{r},{c}|{move_char}|"
         try:
             self.client_socket.sendall(message.encode('utf-8'))
+            print(f"DEBUG: Hamle gönderildi: {message}")
             self.is_my_turn = False
             self.set_board_enabled(False)
             self.status_label.config(text="Hamle gönderildi. Rakip bekleniyor...")

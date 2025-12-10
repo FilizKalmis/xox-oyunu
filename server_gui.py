@@ -77,6 +77,7 @@ class TicTacToeServer:
         self.is_running = True
         self.server_socket = None
         self.clients = [] # Bağlı istemcilerin (socket, adres) listesi
+        self._message_buffer = {}  # Her client için mesaj buffer'ı
         
         # 2. Sunucu Thread'ini Başlatma
         # Socket işlemlerini ayrı bir thread'e taşıyarak GUI'nin bloklanmasını önleriz.
@@ -174,19 +175,74 @@ class TicTacToeServer:
         while self.is_running:
             try:
                 # Bloklayıcı 'recv()' işlemi ayrı thread'de çalışır
-                message = client_socket.recv(1024).decode('utf-8')
+                data = client_socket.recv(1024).decode('utf-8')
                 
-                if message:
-                    # Gelen hamleyi diğer oyuncuya yayınlamak
-                    self.log_message(f"[{client_address}] Mesaj Alındı: {message}")
+                if data:
+                    # Mesajları buffer'a ekle (birden fazla mesaj birleşmiş olabilir)
+                    if not hasattr(self, '_message_buffer'):
+                        self._message_buffer = {}
+                    if client_address not in self._message_buffer:
+                        self._message_buffer[client_address] = ""
                     
-                    # Gelen mesajın formatını kontrol et ve işle
-                    if message.startswith("COMMAND:DISCONNECT"):
-                        self.log_message(f"İstemci bağlantıyı kapattı: {client_address}")
-                        break
+                    self._message_buffer[client_address] += data
+                    self.log_message(f"DEBUG: Veri alındı ({client_address}): {repr(data)}, buffer: {repr(self._message_buffer[client_address])}")
                     
-                    # Diğer istemciye yayını yap
-                    self.broadcast_message(message, sender_socket=client_socket)
+                    # Mesajları ayır: Her mesaj | ile bitiyor
+                    # MOVE mesajları: MOVE|row,col|char| (3 | karakteri gerekli)
+                    # COMMAND mesajları: COMMAND:XXX| (1 | karakteri yeterli)
+                    buffer = self._message_buffer[client_address]
+                    
+                    while buffer:
+                        # MOVE mesajları için 3 | karakteri say
+                        if buffer.startswith("MOVE"):
+                            pipe_count = 0
+                            i = 0
+                            while i < len(buffer):
+                                if buffer[i] == '|':
+                                    pipe_count += 1
+                                    if pipe_count == 3:
+                                        # Tam mesaj bulundu
+                                        message = buffer[:i+1]
+                                        buffer = buffer[i+1:]
+                                        self.log_message(f"[{client_address}] Mesaj Alındı: {message}")
+                                        self.broadcast_message(message, sender_socket=client_socket)
+                                        break
+                                i += 1
+                            else:
+                                # Tam mesaj yok, daha fazla veri bekle
+                                break
+                        
+                        # COMMAND mesajları için ilk | karakterini bul
+                        elif buffer.startswith("COMMAND:"):
+                            pipe_index = buffer.find('|')
+                            if pipe_index != -1:
+                                message = buffer[:pipe_index + 1]
+                                buffer = buffer[pipe_index + 1:]
+                                self.log_message(f"[{client_address}] Mesaj Alındı: {message}")
+                                
+                                if message.startswith("COMMAND:DISCONNECT"):
+                                    self.log_message(f"İstemci bağlantıyı kapattı: {client_address}")
+                                    if client_address in self._message_buffer:
+                                        del self._message_buffer[client_address]
+                                    break
+                                
+                                self.broadcast_message(message, sender_socket=client_socket)
+                            else:
+                                # | karakteri yok, daha fazla veri bekle
+                                break
+                        else:
+                            # Bilinmeyen format, ilk | karakterine kadar al
+                            pipe_index = buffer.find('|')
+                            if pipe_index != -1:
+                                message = buffer[:pipe_index + 1]
+                                buffer = buffer[pipe_index + 1:]
+                                self.log_message(f"[{client_address}] Mesaj Alındı: {message}")
+                                self.broadcast_message(message, sender_socket=client_socket)
+                            else:
+                                break
+                    
+                    # Kalan buffer'ı sakla
+                    self._message_buffer[client_address] = buffer
                 else:
                     # Bağlantı kapandı
                     break 
@@ -203,6 +259,10 @@ class TicTacToeServer:
                 break
 
         # Döngüden çıkıldı: İstemcinin bağlantısını temizle
+        # Buffer'ı temizle
+        if client_address in self._message_buffer:
+            del self._message_buffer[client_address]
+        
         self.remove_client(client_socket, client_address)
         
    
@@ -212,11 +272,22 @@ class TicTacToeServer:
         """Gönderen dışındaki tüm bağlı istemcilere mesajı yollar."""
         if not self.clients:
             return
+        
+        sender_info = None
+        if sender_socket:
+            for sock, addr, char in self.clients:
+                if sock == sender_socket:
+                    sender_info = f"{addr} ({char})"
+                    break
+        
+        self.log_message(f"Yayın yapılıyor: '{message}' (Gönderen: {sender_info})")
             
         for client_socket, client_address, player_char in self.clients[:]:  # Kopya al
             if client_socket != sender_socket:
                 try:
+                    self.log_message(f"  → {client_address} ({player_char})'ye gönderiliyor...")
                     client_socket.sendall(message.encode('utf-8'))
+                    self.log_message(f"  ✓ {client_address} ({player_char})'ye gönderildi")
                 except (ConnectionResetError, ConnectionAbortedError, OSError) as e:
                     self.log_message(f"Yayın Hatası ({client_address}): {e}")
                     # Hata varsa, o istemciyi temizle
@@ -224,10 +295,16 @@ class TicTacToeServer:
                 except Exception as e:
                     self.log_message(f"Beklenmedik Yayın Hatası ({client_address}): {e}")
                     self.remove_client(client_socket, client_address)
+            else:
+                self.log_message(f"  ⊗ {client_address} ({player_char}) atlandı (gönderen)")
 
 
     def remove_client(self, client_socket, client_address):
         """Bağlantısı kopan istemciyi listeden çıkarır ve soketini kapatır."""
+        # Buffer'ı temizle
+        if hasattr(self, '_message_buffer') and client_address in self._message_buffer:
+            del self._message_buffer[client_address]
+        
         # Client listesini güncelle (artık tuple'da player_char var)
         for i, (sock, addr, char) in enumerate(self.clients):
             if sock == client_socket:

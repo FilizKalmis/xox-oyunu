@@ -16,7 +16,7 @@ class LocalGame(BaseGame):
         if self.time_mode:
             self.start_timer()
     
-    def on_move_made(self, r, c):
+    def on_move_made(self, r, c, player_char=None):
         """Hamle yapıldıktan sonra timer'ı yeniden başlat"""
         if self.time_mode and not self.game_over:
             self.start_timer()

@@ -19,7 +19,7 @@ class AIGame(BaseGame):
         if self.time_mode:
             self.start_timer()
     
-    def on_move_made(self, r, c):
+    def on_move_made(self, r, c, player_char=None):
         """Kullanıcı hamle yaptıktan sonra AI hamle yapar"""
         if self.time_mode and not self.game_over:
             self.start_timer()

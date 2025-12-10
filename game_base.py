@@ -68,6 +68,9 @@ class BaseGame:
         if self.game_over or self.game_board[r][c] != ' ':
             return
         
+        # Hamle yapılmadan önceki oyuncuyu sakla (network modu için)
+        move_player = self.current_player
+        
         # Hamleyi yerel olarak yap
         self.update_board(r, c, self.current_player)
         
@@ -81,8 +84,8 @@ class BaseGame:
         self.current_player = 'O' if self.current_player == 'X' else 'X'
         self.update_status()
         
-        # Alt sınıfların hamle işleme metodunu çağır
-        self.on_move_made(r, c)
+        # Alt sınıfların hamle işleme metodunu çağır (hamle yapan oyuncuyu parametre olarak geç)
+        self.on_move_made(r, c, move_player)
     
     def update_board(self, r, c, char):
         """GUI tahtasını ve veri modelini günceller"""
@@ -234,7 +237,9 @@ class BaseGame:
             if self.timer_running:
                 self.start_timer()
     
-    def on_move_made(self, r, c):
-        """Alt sınıflar tarafından override edilecek hamle işleme metodu"""
+    def on_move_made(self, r, c, player_char=None):
+        """Alt sınıflar tarafından override edilecek hamle işleme metodu
+        player_char: Hamleyi yapan oyuncunun karakteri (X veya O)
+        """
         pass
 
