@@ -1,0 +1,109 @@
+═══════════════════════════════════════════════════════════════
+  XOX OYUNU - KURULUM VE KULLANIM TALİMATI
+═══════════════════════════════════════════════════════════════
+
+📦 KURULUM
+═══════════════════════════════════════════════════════════════
+
+1. Zip dosyasını açın (XOX_Oyunu_Projesi.zip)
+
+2. Tüm dosyaları bir klasöre çıkarın
+
+3. Python 3.6 veya üzeri yüklü olduğundan emin olun
+   (Python yüklü mü kontrol: python --version)
+
+4. tkinter kütüphanesi genellikle Python ile birlikte gelir
+   Eğer yoksa: pip install tk
+
+═══════════════════════════════════════════════════════════════
+🚀 HIZLI BAŞLATMA
+═══════════════════════════════════════════════════════════════
+
+1. Ana menüyü başlatın:
+   python game_launcher.py
+
+2. İstediğiniz oyun modunu seçin:
+   - Aynı Bilgisayardan Karşılıklı
+   - Bilgisayara Karşı
+   - Network Üzerinden Karşılıklı
+
+═══════════════════════════════════════════════════════════════
+🌐 NETWORK MODU İÇİN
+═══════════════════════════════════════════════════════════════
+
+1. SUNUCUYU BAŞLATIN (Bir bilgisayarda):
+   python server_gui.py
+
+2. İSTEMCİLERİ BAŞLATIN (İki farklı bilgisayarda veya terminalde):
+   python game_launcher.py
+   → "Network Üzerinden Karşılıklı" seçin
+
+3. FARKLI BİLGİSAYARLARDAN BAĞLANMAK İÇİN:
+   - Oyun başladığında otomatik olarak IP adresi sorulacak
+   - Aynı bilgisayarda test için: 127.0.0.1 yazın
+   - Farklı bilgisayar için: Sunucunun IP adresini yazın
+   - Örnek: 192.168.1.100
+   - IP adresini öğrenmek için sunucu bilgisayarında: ipconfig
+
+═══════════════════════════════════════════════════════════════
+🧪 TEST CASE'LERİ
+═══════════════════════════════════════════════════════════════
+
+Test case'leri çalıştırmak için:
+python test_game.py
+
+═══════════════════════════════════════════════════════════════
+📋 DOSYA AÇIKLAMALARI
+═══════════════════════════════════════════════════════════════
+
+game_launcher.py      → Ana menü (oyun modu seçimi)
+game_base.py          → Temel oyun sınıfı
+game_local.py         → Aynı bilgisayar modu
+game_ai.py            → Bilgisayara karşı modu
+game_network.py       → Network modu (client)
+server_gui.py         → Network modu (sunucu)
+test_game.py          → Test case'leri
+README.md             → Detaylı dokümantasyon
+BASLATMA_KILAVUZU.md  → Hızlı başlatma kılavuzu
+
+═══════════════════════════════════════════════════════════════
+⚙️ ÖZELLİKLER
+═══════════════════════════════════════════════════════════════
+
+✅ Aynı bilgisayardan karşılıklı oyun
+✅ Bilgisayara karşı oyun (AI)
+✅ Network üzerinden karşılıklı oyun (Socket programlama)
+✅ Zaman modu (10 saniye bonus)
+✅ Kazanan/kaybeden mesajları
+✅ Tekrar oynama seçenekleri
+✅ 3 adet test case
+✅ Detaylı dokümantasyon
+
+═══════════════════════════════════════════════════════════════
+❓ SORUN GİDERME
+═══════════════════════════════════════════════════════════════
+
+Problem: "ModuleNotFoundError: No module named 'tkinter'"
+Çözüm: pip install tk
+
+Problem: Network modunda bağlanamıyorum
+Çözüm: 
+  - Sunucunun çalıştığından emin olun
+  - Firewall ayarlarını kontrol edin
+  - IP adresinin doğru olduğundan emin olun
+  - Aynı ağda olduğunuzdan emin olun
+
+Problem: Port kullanımda hatası
+Çözüm: server_gui.py ve game_network.py dosyalarındaki 
+       PORT = 55555 değerini değiştirin
+
+═══════════════════════════════════════════════════════════════
+📧 İLETİŞİM
+═══════════════════════════════════════════════════════════════
+
+Detaylı bilgi için README.md dosyasını okuyun.
+
+═══════════════════════════════════════════════════════════════
+
+İyi Oyunlar! 🎮
+
